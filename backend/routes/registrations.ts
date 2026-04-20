@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { registrationsRepository } from '../repositories/registrations';
 import { activitiesRepository } from '../repositories/activities';
 import { notificationsRepository } from '../repositories/notifications';
-import { insertRegistrationSchema } from '../db/schema';
+import { insertRegistrationSchema } from '../db/validationSchemas';
 import { z } from 'zod';
 
 const router = Router();

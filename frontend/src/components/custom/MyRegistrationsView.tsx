@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { apiService } from '../../lib/api';
-import type { Registration } from '../../types';
-import { TYPE_LABELS, TYPE_COLORS, CURRENT_USER } from '../../pages/Index';
+import type { Registration, User } from '../../types';
+import { TYPE_LABELS, TYPE_COLORS } from '../../pages/Index';
 
 export default function MyRegistrationsView({
   onViewActivity,
@@ -16,11 +16,23 @@ export default function MyRegistrationsView({
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'registered' | 'cancelled'>('registered');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  const loadUserData = async () => {
+    try {
+      const res = await apiService.getCurrentUser();
+      if (res.success) {
+        setCurrentUser(res.data);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const loadRegistrations = async () => {
     setLoading(true);
     try {
-      const res = await apiService.getRegistrationsByStudent(CURRENT_USER.email);
+      const res = await apiService.getRegistrationsByUser();
       if (res.success) setRegistrations(res.data);
     } catch {
       // ignore
@@ -30,6 +42,7 @@ export default function MyRegistrationsView({
   };
 
   useEffect(() => {
+    loadUserData();
     loadRegistrations();
   }, [registeredIds]);
 
@@ -56,14 +69,12 @@ export default function MyRegistrationsView({
     <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <img
-          src={CURRENT_USER.avatar}
-          alt="头像"
-          className="w-12 h-12 rounded-full object-cover border-2 border-[#e0e0f0]"
-        />
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
+          {currentUser?.name?.charAt(0) || '?'}
+        </div>
         <div>
           <h1 className="text-2xl font-bold text-[#1e1b4b]">我的报名</h1>
-          <p className="text-sm text-[#6b7280]">{CURRENT_USER.name} · {CURRENT_USER.studentId}</p>
+          <p className="text-sm text-[#6b7280]">{currentUser?.name} · {currentUser?.studentId}</p>
         </div>
       </div>
 

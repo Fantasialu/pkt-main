@@ -1,8 +1,28 @@
-import { db } from '../db';
-import { activities, Activity, InsertActivity } from '../db/schema';
-import { eq, ilike, or, and, desc, asc, sql } from 'drizzle-orm';
-import { z } from 'zod';
-import { insertActivitySchema, updateActivitySchema } from '../db/schema';
+import { db, eq } from '../db';
+
+interface Activity {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  location: string;
+  startTime: string;
+  endTime?: string;
+  registrationDeadline?: string;
+  maxParticipants: number;
+  currentParticipants: number;
+  organizerId?: string;
+  organizer: string;
+  organizerContact?: string;
+  imageUrl?: string;
+  status: string;
+  isFeatured: boolean;
+  allowedColleges?: string;
+  allowedMajors?: string;
+  allowedGrades?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export class ActivitiesRepository {
   async findAll(filters?: {
@@ -11,94 +31,124 @@ export class ActivitiesRepository {
     search?: string;
     sort?: string;
   }): Promise<Activity[]> {
-    const conditions = [];
+    let activities = await db.select().from('Activities').execute();
 
     if (filters?.type && filters.type !== 'all') {
-      conditions.push(eq(activities.type, filters.type));
+      activities = activities.filter(a => a.type === filters.type);
     }
     if (filters?.status) {
-      conditions.push(eq(activities.status, filters.status));
+      activities = activities.filter(a => a.status === filters.status);
     }
     if (filters?.search) {
-      conditions.push(
-        or(
-          ilike(activities.title, `%${filters.search}%`),
-          ilike(activities.description, `%${filters.search}%`),
-          ilike(activities.organizer, `%${filters.search}%`)
-        )
+      const searchLower = filters.search.toLowerCase();
+      activities = activities.filter(a =>
+        a.title.toLowerCase().includes(searchLower) ||
+        a.description.toLowerCase().includes(searchLower) ||
+        a.organizer.toLowerCase().includes(searchLower)
       );
     }
 
     if (filters?.sort === 'popular') {
-      return conditions.length > 0
-        ? db.select().from(activities).where(and(...conditions)).orderBy(desc(activities.currentParticipants))
-        : db.select().from(activities).orderBy(desc(activities.currentParticipants));
+      activities.sort((a, b) => b.currentParticipants - a.currentParticipants);
     } else if (filters?.sort === 'upcoming') {
-      return conditions.length > 0
-        ? db.select().from(activities).where(and(...conditions)).orderBy(asc(activities.startTime))
-        : db.select().from(activities).orderBy(asc(activities.startTime));
+      activities.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     } else {
-      return conditions.length > 0
-        ? db.select().from(activities).where(and(...conditions)).orderBy(desc(activities.createdAt))
-        : db.select().from(activities).orderBy(desc(activities.createdAt));
+      activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
+
+    return activities;
   }
 
   async findById(id: string): Promise<Activity | undefined> {
-    const result = await db.select().from(activities).where(eq(activities.id, id)).limit(1);
-    return result[0];
+    const activities = await db.select().from('Activities').execute();
+    return activities.find(a => a.id === id);
   }
 
   async findFeatured(): Promise<Activity[]> {
-    return db.select().from(activities)
-      .where(and(eq(activities.isFeatured, true), eq(activities.status, 'approved')))
-      .orderBy(desc(activities.createdAt))
-      .limit(3);
+    const activities = await db.select().from('Activities').execute();
+    return activities
+      .filter(a => a.isFeatured && a.status === 'approved')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3);
   }
 
-  async create(data: z.infer<typeof insertActivitySchema>): Promise<Activity> {
-    const result = await db.insert(activities).values(data as InsertActivity).returning();
+  async create(data: {
+    title: string;
+    description: string;
+    type: string;
+    location: string;
+    startTime: Date;
+    endTime?: Date;
+    registrationDeadline?: Date;
+    maxParticipants?: number;
+    organizer: string;
+    organizerContact?: string;
+    imageUrl?: string;
+    status?: string;
+    isFeatured?: boolean;
+    allowedColleges?: string[];
+    allowedMajors?: string[];
+    allowedGrades?: string[];
+  }): Promise<Activity> {
+    const result = await db.insert('Activities').values({
+      ...data,
+      maxParticipants: data.maxParticipants || 100,
+      currentParticipants: 0,
+      status: data.status || 'pending',
+      isFeatured: data.isFeatured || false,
+      allowedColleges: data.allowedColleges && data.allowedColleges.length > 0 ? JSON.stringify(data.allowedColleges) : undefined,
+      allowedMajors: data.allowedMajors && data.allowedMajors.length > 0 ? JSON.stringify(data.allowedMajors) : undefined,
+      allowedGrades: data.allowedGrades && data.allowedGrades.length > 0 ? JSON.stringify(data.allowedGrades) : undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).returning();
     return result[0];
   }
 
-  async update(id: string, data: z.infer<typeof updateActivitySchema>): Promise<Activity | undefined> {
-    const result = await db.update(activities)
-      .set({ ...data as Partial<InsertActivity>, updatedAt: new Date() })
-      .where(eq(activities.id, id))
+  async update(id: string, data: Partial<Activity>): Promise<Activity | undefined> {
+    const result = await db.update('Activities')
+      .set({ ...data, updatedAt: new Date().toISOString() })
+      .where(eq({ id: '' }, id))
       .returning();
     return result[0];
   }
 
   async updateStatus(id: string, status: string): Promise<Activity | undefined> {
-    const result = await db.update(activities)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(activities.id, id))
+    const result = await db.update('Activities')
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq({ id: '' }, id))
       .returning();
     return result[0];
   }
 
   async incrementParticipants(id: string): Promise<void> {
-    await db.update(activities)
-      .set({ currentParticipants: sql`${activities.currentParticipants} + 1`, updatedAt: new Date() })
-      .where(eq(activities.id, id));
+    const activities = await db.select().from('Activities').execute();
+    const activity = activities.find(a => a.id === id);
+    if (activity) {
+      activity.currentParticipants++;
+      activity.updatedAt = new Date().toISOString();
+    }
   }
 
   async decrementParticipants(id: string): Promise<void> {
-    await db.update(activities)
-      .set({ currentParticipants: sql`GREATEST(${activities.currentParticipants} - 1, 0)`, updatedAt: new Date() })
-      .where(eq(activities.id, id));
+    const activities = await db.select().from('Activities').execute();
+    const activity = activities.find(a => a.id === id);
+    if (activity) {
+      activity.currentParticipants = Math.max(0, activity.currentParticipants - 1);
+      activity.updatedAt = new Date().toISOString();
+    }
   }
 
   async getStats(): Promise<{ totalActivities: number; totalRegistrations: number; activeOrganizers: number; coverageRate: number }> {
-    const totalResult = await db.select({ count: sql<number>`count(*)` }).from(activities);
-    const approvedResult = await db.select({ count: sql<number>`count(*)` }).from(activities).where(eq(activities.status, 'approved'));
-    const participantsResult = await db.select({ total: sql<number>`sum(current_participants)` }).from(activities);
-    const organizersResult = await db.select({ count: sql<number>`count(distinct organizer)` }).from(activities);
+    const activities = await db.select().from('Activities').execute();
+    const approvedActivities = activities.filter(a => a.status === 'approved');
+    const totalRegistrations = approvedActivities.reduce((sum, a) => sum + a.currentParticipants, 0);
+    const organizers = new Set(approvedActivities.map(a => a.organizer)).size;
 
     return {
-      totalActivities: Number(approvedResult[0]?.count ?? 0),
-      totalRegistrations: Number(participantsResult[0]?.total ?? 0),
-      activeOrganizers: Number(organizersResult[0]?.count ?? 0),
+      totalActivities: approvedActivities.length,
+      totalRegistrations,
+      activeOrganizers: organizers,
       coverageRate: 94,
     };
   }

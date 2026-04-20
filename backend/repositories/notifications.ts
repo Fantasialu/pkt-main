@@ -1,39 +1,61 @@
-import { db } from '../db';
-import { notifications, Notification, InsertNotification } from '../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
-import { z } from 'zod';
-import { insertNotificationSchema } from '../db/schema';
+import { db, eq } from '../db';
+
+interface Notification {
+  id: string;
+  activityId?: string;
+  userId?: string;
+  studentEmail: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
 export class NotificationsRepository {
   async findByEmail(studentEmail: string): Promise<Notification[]> {
-    return db.select().from(notifications)
-      .where(eq(notifications.studentEmail, studentEmail))
-      .orderBy(desc(notifications.createdAt));
+    const notifications = await db.select().from('Notifications').execute();
+    return notifications
+      .filter(n => n.studentEmail === studentEmail)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async create(data: z.infer<typeof insertNotificationSchema>): Promise<Notification> {
-    const result = await db.insert(notifications).values(data as InsertNotification).returning();
+  async create(data: {
+    activityId?: string;
+    studentEmail: string;
+    title: string;
+    message: string;
+    type?: string;
+  }): Promise<Notification> {
+    const result = await db.insert('Notifications').values({
+      ...data,
+      type: data.type || 'reminder',
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    }).returning();
     return result[0];
   }
 
   async markAsRead(id: string): Promise<Notification | undefined> {
-    const result = await db.update(notifications)
+    const result = await db.update('Notifications')
       .set({ isRead: true })
-      .where(eq(notifications.id, id))
+      .where(eq({ id: '' }, id))
       .returning();
     return result[0];
   }
 
   async markAllAsRead(studentEmail: string): Promise<void> {
-    await db.update(notifications)
-      .set({ isRead: true })
-      .where(eq(notifications.studentEmail, studentEmail));
+    const notifications = await db.select().from('Notifications').execute();
+    notifications.forEach(n => {
+      if (n.studentEmail === studentEmail) {
+        n.isRead = true;
+      }
+    });
   }
 
   async getUnreadCount(studentEmail: string): Promise<number> {
-    const result = await db.select().from(notifications)
-      .where(and(eq(notifications.studentEmail, studentEmail), eq(notifications.isRead, false)));
-    return result.length;
+    const notifications = await db.select().from('Notifications').execute();
+    return notifications.filter(n => n.studentEmail === studentEmail && !n.isRead).length;
   }
 }
 

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { apiService } from '../../lib/api';
-import type { Notification } from '../../types';
-import { CURRENT_USER } from '../../pages/Index';
+import type { Notification, User } from '../../types';
 
 const TYPE_ICONS: Record<string, string> = {
   reminder: '🔔',
@@ -26,11 +25,27 @@ export default function NotificationsView({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const res = await apiService.getCurrentUser();
+        if (res.success && res.data) {
+          setCurrentUser(res.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadUser();
+  }, []);
 
   const loadNotifications = async () => {
+    if (!currentUser) return;
     setLoading(true);
     try {
-      const res = await apiService.getNotifications(CURRENT_USER.email);
+      const res = await apiService.getUserNotifications();
       if (res.success) {
         setNotifications(res.data);
         onUnreadCountChange(res.data.filter((n) => !n.isRead).length);
@@ -43,8 +58,10 @@ export default function NotificationsView({
   };
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    if (currentUser) {
+      loadNotifications();
+    }
+  }, [currentUser]);
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -60,8 +77,9 @@ export default function NotificationsView({
   };
 
   const handleMarkAllRead = async () => {
+    if (!currentUser) return;
     try {
-      await apiService.markAllNotificationsRead(CURRENT_USER.email);
+      await apiService.markAllNotificationsRead(currentUser.email);
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       onUnreadCountChange(0);
       toast.success('已全部标记为已读');

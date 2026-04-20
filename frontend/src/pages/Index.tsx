@@ -1,13 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { apiService } from '../lib/api';
-import type { Activity, Registration, Notification, PlatformStats, ViewType } from '../types';
+import type { Activity, Registration, Notification, PlatformStats, ViewType, User } from '../types';
 import ActivitiesView from '../components/custom/ActivitiesView';
 import ActivityDetailView from '../components/custom/ActivityDetailView';
 import MyRegistrationsView from '../components/custom/MyRegistrationsView';
 import PublishActivityView from '../components/custom/PublishActivityView';
 import NotificationsView from '../components/custom/NotificationsView';
 import AdminView from '../components/custom/AdminView';
+import { ProfileView } from '../components/custom/ProfileView';
+
+interface IndexProps {
+  currentUser: User | null;
+  currentView: ViewType;
+  onViewChange: (view: ViewType) => void;
+  onLogout: () => void;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
@@ -28,14 +36,6 @@ const TYPE_COLORS: Record<string, string> = {
 
 export { TYPE_LABELS, TYPE_COLORS };
 
-// ─── Current User (demo) ─────────────────────────────────────────────────────
-export const CURRENT_USER = {
-  name: '张三',
-  email: 'zhangsan@campus.edu.cn',
-  studentId: '2023001234',
-  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=40&h=40&fit=crop&crop=face',
-};
-
 // ─── Navbar ──────────────────────────────────────────────────────────────────
 function Navbar({
   currentView,
@@ -43,20 +43,28 @@ function Navbar({
   unreadCount,
   mobileMenuOpen,
   setMobileMenuOpen,
+  currentUser,
 }: {
   currentView: ViewType;
   onNavigate: (v: ViewType) => void;
   unreadCount: number;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (v: boolean) => void;
+  currentUser: User | null;
 }) {
-  const navItems: { label: string; view: ViewType }[] = [
+  const navItems: { label: string; view: ViewType; requireAuth?: boolean }[] = [
     { label: '活动广场', view: 'home' },
-    { label: '我的报名', view: 'my-registrations' },
-    { label: '发布活动', view: 'publish' },
-    { label: '通知中心', view: 'notifications' },
-    { label: '管理后台', view: 'admin' },
+    { label: '我的报名', view: 'my-registrations', requireAuth: true },
+    { label: '发布活动', view: 'publish', requireAuth: true },
+    { label: '通知中心', view: 'notifications', requireAuth: true },
+    { label: '管理后台', view: 'admin', requireAuth: true },
   ];
+
+  const filteredNavItems = navItems.filter(item => {
+    if (item.requireAuth && !currentUser) return false;
+    if (item.view === 'admin' && currentUser?.role !== 'admin') return false;
+    return true;
+  });
 
   return (
     <nav className="bg-white border-b border-[#e0e0f0] sticky top-0 z-50 shadow-sm">
@@ -77,7 +85,7 @@ function Navbar({
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <button
                 key={item.view}
                 onClick={() => onNavigate(item.view)}
@@ -94,27 +102,29 @@ function Navbar({
 
           {/* Right side */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => onNavigate('notifications')}
-              className="relative p-2 rounded-full hover:bg-[#f8f7ff] transition-colors duration-200"
-            >
-              <svg className="w-5 h-5 text-[#6b7280]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-[#f59e0b] rounded-full flex items-center justify-center text-white text-[10px] font-bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('my-registrations')}>
-              <img
-                src={CURRENT_USER.avatar}
-                alt="用户头像"
-                className="w-8 h-8 rounded-full object-cover border-2 border-[#e0e0f0]"
-              />
-              <span className="hidden sm:block text-sm font-medium text-[#1e1b4b]">{CURRENT_USER.name}</span>
-            </div>
+            {currentUser && (
+              <>
+                <button
+                  onClick={() => onNavigate('notifications')}
+                  className="relative p-2 rounded-full hover:bg-[#f8f7ff] transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5 text-[#6b7280]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-[#f59e0b] rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('profile')}>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                    {currentUser.name.charAt(0)}
+                  </div>
+                  <span className="hidden sm:block text-sm font-medium text-[#1e1b4b]">{currentUser.name}</span>
+                </div>
+              </>
+            )}
             {/* Mobile menu button */}
             <button
               className="md:hidden p-2 rounded-lg hover:bg-[#f8f7ff] transition-colors"
@@ -137,7 +147,7 @@ function Navbar({
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-[#e0e0f0] px-4 py-3 space-y-1">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <button
               key={item.view}
               onClick={() => { onNavigate(item.view); setMobileMenuOpen(false); }}
@@ -489,18 +499,20 @@ function RegistrationModal({
   activity,
   onClose,
   onSuccess,
+  currentUser,
 }: {
   activity: Activity;
   onClose: () => void;
   onSuccess: () => void;
+  currentUser: User | null;
 }) {
   const [form, setForm] = useState({
-    studentName: CURRENT_USER.name,
-    studentId: CURRENT_USER.studentId,
-    studentEmail: CURRENT_USER.email,
-    studentPhone: '',
-    major: '',
-    grade: '',
+    studentName: currentUser?.name || '',
+    studentId: currentUser?.studentId || '',
+    studentEmail: currentUser?.email || '',
+    studentPhone: currentUser?.phone || '',
+    major: currentUser?.major || '',
+    grade: currentUser?.grade || '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -589,11 +601,14 @@ function RegistrationModal({
                   className="w-full px-3 py-2 text-sm border border-[#e0e0f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3730a3]/30 focus:border-[#3730a3] bg-white"
                 >
                   <option value="">选择年级</option>
-                  <option value="大一">大一</option>
-                  <option value="大二">大二</option>
-                  <option value="大三">大三</option>
-                  <option value="大四">大四</option>
-                  <option value="研究生">研究生</option>
+                  <option value="18级">18级</option>
+                  <option value="19级">19级</option>
+                  <option value="20级">20级</option>
+                  <option value="21级">21级</option>
+                  <option value="22级">22级</option>
+                  <option value="23级">23级</option>
+                  <option value="24级">24级</option>
+                  <option value="25级">25级</option>
                 </select>
               </div>
             </div>
@@ -826,7 +841,10 @@ function HomePage({
 }
 
 // ─── Footer ───────────────────────────────────────────────────────────────────
-function Footer({ onNavigate }: { onNavigate: (v: ViewType) => void }) {
+function Footer({ onNavigate, currentUser }: { onNavigate: (v: ViewType) => void; currentUser: User | null }) {
+  const navItems: [ViewType, string][] = [['home', '活动广场'], ['my-registrations', '我的报名'], ['publish', '发布活动'], ['notifications', '通知中心']];
+  const filteredNavItems = currentUser ? navItems : [['home', '活动广场']];
+
   return (
     <footer className="bg-[#1e1b4b] text-white">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -847,7 +865,7 @@ function Footer({ onNavigate }: { onNavigate: (v: ViewType) => void }) {
           <div>
             <h4 className="text-sm font-semibold mb-4 uppercase tracking-wide text-white/80">快速导航</h4>
             <ul className="space-y-2">
-              {([['home', '活动广场'], ['my-registrations', '我的报名'], ['publish', '发布活动'], ['notifications', '通知中心']] as [ViewType, string][]).map(([view, label]) => (
+              {filteredNavItems.map(([view, label]) => (
                 <li key={view}>
                   <button onClick={() => onNavigate(view)} className="text-sm text-white/60 hover:text-white transition-colors">{label}</button>
                 </li>
@@ -873,8 +891,7 @@ function Footer({ onNavigate }: { onNavigate: (v: ViewType) => void }) {
 }
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
-export default function Index() {
-  const [currentView, setCurrentView] = useState<ViewType>('home');
+export default function Index({ currentUser, currentView, onViewChange, onLogout }: IndexProps) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [registerActivity, setRegisterActivity] = useState<Activity | null>(null);
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
@@ -884,9 +901,11 @@ export default function Index() {
 
   // Load registrations on mount
   useEffect(() => {
+    if (!currentUser) return;
+    
     const loadRegistrations = async () => {
       try {
-        const res = await apiService.getRegistrationsByStudent(CURRENT_USER.email);
+        const res = await apiService.getRegistrationsByStudent(currentUser.email);
         if (res.success) {
           const ids = new Set(res.data.filter((r) => r.status === 'registered').map((r) => r.activityId));
           setRegisteredIds(ids);
@@ -897,7 +916,7 @@ export default function Index() {
     };
     const loadNotifications = async () => {
       try {
-        const res = await apiService.getNotifications(CURRENT_USER.email);
+        const res = await apiService.getNotifications(currentUser.email);
         if (res.success) {
           setUnreadCount(res.data.filter((n) => !n.isRead).length);
         }
@@ -907,19 +926,19 @@ export default function Index() {
     };
     loadRegistrations();
     loadNotifications();
-  }, []);
+  }, [currentUser]);
 
   const handleNavigate = useCallback((view: ViewType) => {
-    setCurrentView(view);
+    onViewChange(view);
     setMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [onViewChange]);
 
   const handleViewActivity = useCallback((id: string) => {
     setSelectedActivityId(id);
-    setCurrentView('activity-detail');
+    onViewChange('activity-detail');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [onViewChange]);
 
   const handleRegisterSuccess = useCallback((activityId: string) => {
     setRegisteredIds((prev) => new Set([...prev, activityId]));
@@ -927,8 +946,10 @@ export default function Index() {
   }, []);
 
   const handleCancelRegistration = useCallback(async (activityId: string) => {
+    if (!currentUser) return;
+    
     try {
-      const regRes = await apiService.getRegistrationsByStudent(CURRENT_USER.email);
+      const regRes = await apiService.getRegistrationsByStudent(currentUser.email);
       if (regRes.success) {
         const reg = regRes.data.find((r) => r.activityId === activityId && r.status === 'registered');
         if (reg) {
@@ -946,7 +967,7 @@ export default function Index() {
     } catch {
       toast.error('取消报名失败，请稍后重试');
     }
-  }, []);
+  }, [currentUser]);
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
@@ -1004,6 +1025,10 @@ export default function Index() {
         );
       case 'admin':
         return <AdminView onViewActivity={handleViewActivity} />;
+      case 'profile':
+        return currentUser ? (
+          <ProfileView user={currentUser} onLogout={onLogout} />
+        ) : null;
       default:
         return null;
     }
@@ -1017,18 +1042,20 @@ export default function Index() {
         unreadCount={unreadCount}
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
+        currentUser={currentUser}
       />
       <div className="flex-1">
         {renderView()}
       </div>
-      {currentView !== 'admin' && <Footer onNavigate={handleNavigate} />}
+      {currentView !== 'admin' && currentView !== 'profile' && <Footer onNavigate={handleNavigate} currentUser={currentUser} />}
 
       {/* Registration Modal */}
-      {registerActivity && (
+      {registerActivity && currentUser && (
         <RegistrationModal
           activity={registerActivity}
           onClose={() => setRegisterActivity(null)}
           onSuccess={() => handleRegisterSuccess(registerActivity.id)}
+          currentUser={currentUser}
         />
       )}
     </div>

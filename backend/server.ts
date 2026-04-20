@@ -7,6 +7,7 @@ import activitiesRouter from './routes/activities';
 import registrationsRouter from './routes/registrations';
 import notificationsRouter from './routes/notifications';
 import adminRouter from './routes/admin';
+import usersRouter from './routes/users';
 
 // Configuration
 import { SERVER_CONFIG } from './config/constants';
@@ -56,6 +57,7 @@ app.use('/api/activities', activitiesRouter);
 app.use('/api/registrations', registrationsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/users', usersRouter);
 
 /**
  * SPA Fallback Route

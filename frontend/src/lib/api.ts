@@ -1,17 +1,55 @@
 import { API_BASE_URL } from '../config/constants';
-import type { Activity, Registration, Notification, PlatformStats, ApiResponse } from '../types';
+import type { Activity, Registration, Notification, PlatformStats, ApiResponse, User, LoginResponse, ActivityReview } from '../types';
 
 const BASE = API_BASE_URL;
 
+function getToken(): string | null {
+  return localStorage.getItem('token');
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<ApiResponse<T>> {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch(`${BASE}${url}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { ...headers, ...options?.headers },
     ...options,
   });
   return res.json() as Promise<ApiResponse<T>>;
 }
 
 export const apiService = {
+  // Auth
+  register: (data: {
+    email: string;
+    password: string;
+    name: string;
+    studentId?: string;
+    phone?: string;
+    major?: string;
+    grade?: string;
+    college?: string;
+  }) => request<LoginResponse>('/api/users/register', { method: 'POST', body: JSON.stringify(data) }),
+
+  login: (data: { email: string; password: string }) =>
+    request<LoginResponse>('/api/users/login', { method: 'POST', body: JSON.stringify(data) }),
+
+  getCurrentUser: () => request<User>('/api/users/me'),
+
+  updateUser: (data: Partial<User>) =>
+    request<User>('/api/users/me', { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteUser: () => request<null>('/api/users/me', { method: 'DELETE' }),
+
+  getAllUsers: () => request<User[]>('/api/users/all'),
+
+  updateUserRole: (id: string, data: { role: string; isActive: boolean }) =>
+    request<User>(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteUserById: (id: string) => request<null>(`/api/users/${id}`, { method: 'DELETE' }),
+
   // Activities
   getActivities: (params?: { type?: string; search?: string; sort?: string }) => {
     const query = new URLSearchParams();
@@ -34,6 +72,8 @@ export const apiService = {
   updateActivity: (id: string, data: Partial<Activity>) =>
     request<Activity>(`/api/activities/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
+  deleteActivity: (id: string) => request<Activity>(`/api/activities/${id}`, { method: 'DELETE' }),
+
   updateActivityStatus: (id: string, status: string) =>
     request<Activity>(`/api/activities/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
@@ -43,6 +83,8 @@ export const apiService = {
 
   getRegistrationsByStudent: (email: string) =>
     request<Registration[]>(`/api/registrations/student/${encodeURIComponent(email)}`),
+
+  getRegistrationsByUser: () => request<Registration[]>('/api/registrations/me'),
 
   createRegistration: (data: {
     activityId: string;
@@ -57,15 +99,30 @@ export const apiService = {
   cancelRegistration: (id: string) =>
     request<Registration>(`/api/registrations/${id}`, { method: 'DELETE' }),
 
+  approveRegistration: (id: string) =>
+    request<Registration>(`/api/registrations/${id}/approve`, { method: 'PATCH' }),
+
+  checkIn: (activityId: string) =>
+    request<Registration>(`/api/registrations/checkin/${activityId}`, { method: 'POST' }),
+
   // Notifications
   getNotifications: (email: string) =>
     request<Notification[]>(`/api/notifications/${encodeURIComponent(email)}`),
+
+  getUserNotifications: () => request<Notification[]>('/api/notifications/me'),
 
   markNotificationRead: (id: string) =>
     request<Notification>(`/api/notifications/${id}/read`, { method: 'PATCH' }),
 
   markAllNotificationsRead: (email: string) =>
     request<null>(`/api/notifications/read-all/${encodeURIComponent(email)}`, { method: 'PATCH' }),
+
+  // Reviews
+  getReviews: (activityId: string) =>
+    request<ActivityReview[]>(`/api/reviews/activity/${activityId}`),
+
+  createReview: (data: { activityId: string; rating: number; comment?: string }) =>
+    request<ActivityReview>('/api/reviews', { method: 'POST', body: JSON.stringify(data) }),
 
   // Admin
   getAdminStats: () => request<PlatformStats>('/api/admin/stats'),

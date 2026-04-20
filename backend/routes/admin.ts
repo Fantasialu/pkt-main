@@ -3,8 +3,6 @@ import { activitiesRepository } from '../repositories/activities';
 import { registrationsRepository } from '../repositories/registrations';
 import { notificationsRepository } from '../repositories/notifications';
 import { db } from '../db';
-import { activities, registrations } from '../db/schema';
-import { eq, sql } from 'drizzle-orm';
 
 const router = Router();
 
@@ -14,22 +12,26 @@ router.get('/stats', async (_req: Request, res: Response) => {
     const stats = await activitiesRepository.getStats();
 
     // Get pending activities count
-    const pendingResult = await db.select({ count: sql<number>`count(*)` })
-      .from(activities)
-      .where(eq(activities.status, 'pending'));
+    const activities = await db.select().from('Activities').execute();
+    const pendingCount = activities.filter(a => a.status === 'pending').length;
 
     // Get activities by type
-    const byTypeResult = await db.select({
-      type: activities.type,
-      count: sql<number>`count(*)`
-    }).from(activities).where(eq(activities.status, 'approved')).groupBy(activities.type);
+    const approvedActivities = activities.filter(a => a.status === 'approved');
+    const byType: { type: string; count: number }[] = [];
+    const typeCounts: Record<string, number> = {};
+    approvedActivities.forEach(a => {
+      typeCounts[a.type] = (typeCounts[a.type] || 0) + 1;
+    });
+    Object.entries(typeCounts).forEach(([type, count]) => {
+      byType.push({ type, count });
+    });
 
     res.json({
       success: true,
       data: {
         ...stats,
-        pendingCount: Number(pendingResult[0]?.count ?? 0),
-        byType: byTypeResult,
+        pendingCount,
+        byType,
       }
     });
   } catch (error) {
@@ -58,6 +60,18 @@ router.patch('/activities/:id/approve', async (req: Request, res: Response) => {
     if (!activity) {
       return res.status(404).json({ success: false, message: '活动不存在' });
     }
+    
+    // Send notification to organizer
+    if (activity.organizerContact) {
+      await notificationsRepository.create({
+        activityId: activity.id,
+        studentEmail: activity.organizerContact,
+        title: '活动审核通过',
+        message: `您发布的活动「${activity.title}」举办成功！活动现已开放报名，欢迎同学们参与。`,
+        type: 'update',
+      });
+    }
+    
     res.json({ success: true, data: activity });
   } catch (error) {
     res.status(500).json({ success: false, message: '审核失败' });
@@ -72,6 +86,18 @@ router.patch('/activities/:id/reject', async (req: Request, res: Response) => {
     if (!activity) {
       return res.status(404).json({ success: false, message: '活动不存在' });
     }
+    
+    // Send notification to organizer
+    if (activity.organizerContact) {
+      await notificationsRepository.create({
+        activityId: activity.id,
+        studentEmail: activity.organizerContact,
+        title: '活动审核未通过',
+        message: `您提交的活动「${activity.title}」未通过审核。请检查活动信息后重新提交申请。`,
+        type: 'update',
+      });
+    }
+    
     res.json({ success: true, data: activity });
   } catch (error) {
     res.status(500).json({ success: false, message: '拒绝失败' });

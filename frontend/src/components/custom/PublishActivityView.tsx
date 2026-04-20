@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { apiService } from '../../lib/api';
-import { CURRENT_USER } from '../../pages/Index';
+import type { User } from '../../types';
 
 const ACTIVITY_TYPES = [
   { value: 'lecture', label: '🎓 学术讲座' },
@@ -59,9 +59,25 @@ const INITIAL_FORM = {
 };
 
 export default function PublishActivityView({ onSuccess }: { onSuccess: () => void }) {
-  const [form, setForm] = useState({ ...INITIAL_FORM, organizer: CURRENT_USER.name });
+  const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const res = await apiService.getCurrentUser();
+        if (res.success && res.data) {
+          setCurrentUser(res.data);
+          setForm((prev) => ({ ...prev, organizer: res.data.name || '' }));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadUser();
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -131,7 +147,7 @@ export default function PublishActivityView({ onSuccess }: { onSuccess: () => vo
           </p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => { setSubmitted(false); setForm({ ...INITIAL_FORM, organizer: CURRENT_USER.name }); }}
+              onClick={() => { setSubmitted(false); setForm({ ...INITIAL_FORM, organizer: currentUser?.name || '' }); }}
               className="px-6 py-2.5 border border-[#e0e0f0] text-[#6b7280] font-semibold rounded-xl text-sm hover:bg-[#f8f7ff] transition-colors"
             >
               继续发布
