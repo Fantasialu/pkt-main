@@ -1,0 +1,100 @@
+{
+  "users": [
+    {
+      "id": "a7286492-48b1-4561-96ef-f25e5c7c05d6",
+      "email": "admin@example.com",
+      "password": "$2b$10$yg9LYUSIscYNt.hsDJ8zROnR2lpqJaAxXlTtMJxNjT34ogyvonDBq",
+      "name": "管理员",
+      "role": "admin",
+      "isActive": true,
+      "createdAt": "2026-04-24T14:26:06.525Z",
+      "updatedAt": "2026-04-24T14:26:06.525Z"
+    },
+    {
+      "email": "3863743279@qq.com",
+      "password": "$2b$10$.jnBqA5BOoZYIvpc4WJ1UOcUJoLLEL3vMjpm1.ymJLWVPioaP7WZi",
+      "name": "陆凡",
+      "studentId": "244090117",
+      "phone": "",
+      "major": "计算机科学与技术",
+      "grade": "24级",
+      "college": "计算机学院",
+      "role": "student",
+      "isActive": true,
+      "createdAt": "2026-04-24T14:30:17.112Z",
+      "updatedAt": "2026-04-24T14:30:17.112Z",
+      "id": "88762b5a-9854-406a-8577-c73f5dacc762"
+    }
+  ],
+  "activities": [
+    {
+      "id": "c6ab4550-9ce0-4e82-9017-7f618e770efc",
+      "title": "校园技术分享会",
+      "description": "邀请业界专家分享最新技术趋势，包括人工智能、云计算、大数据等热门话题。欢迎所有对技术感兴趣的同学参加！",
+      "type": "lecture",
+      "location": "图书馆报告厅B201",
+      "startTime": "2026-04-26T14:26:06.525Z",
+      "registrationDeadline": "2026-04-25T14:26:06.525Z",
+      "maxParticipants": 200,
+      "currentParticipants": 45,
+      "organizer": "计算机学院",
+      "status": "approved",
+      "isFeatured": true,
+      "allowedColleges": "[\"计算机学院\",\"数学学院\"]",
+      "allowedGrades": "[\"24级\",\"23级\",\"22级\"]",
+      "createdAt": "2026-04-24T14:26:06.525Z",
+      "updatedAt": "2026-04-24T14:26:06.525Z"
+    },
+    {
+      "id": "9c41e97f-e2a6-4a76-b315-178f7c57dfde",
+      "title": "校园运动会",
+      "description": "一年一度的校园运动会即将开始！设有田径、篮球、足球、羽毛球等多个项目，欢迎各学院同学积极参与！",
+      "type": "sports",
+      "location": "学校体育场",
+      "startTime": "2026-04-29T14:26:06.525Z",
+      "endTime": "2026-04-30T14:26:06.525Z",
+      "registrationDeadline": "2026-04-27T14:26:06.525Z",
+      "maxParticipants": 500,
+      "currentParticipants": 120,
+      "organizer": "体育学院",
+      "status": "approved",
+      "isFeatured": true,
+      "createdAt": "2026-04-24T14:26:06.525Z",
+      "updatedAt": "2026-04-24T14:26:06.525Z"
+    },
+    {
+      "id": "c6276d49-30fe-4f4e-acce-9c01d361f2c3",
+      "title": "志愿者招募大会",
+      "description": "校志愿者协会举办的年度志愿者招募大会，为同学们提供丰富的志愿服务机会，包括社区服务、环保活动等。",
+      "type": "volunteer",
+      "location": "学生活动中心",
+      "startTime": "2026-05-01T14:26:06.525Z",
+      "registrationDeadline": "2026-04-29T14:26:06.525Z",
+      "maxParticipants": 150,
+      "currentParticipants": 67,
+      "organizer": "校志愿者协会",
+      "status": "approved",
+      "isFeatured": false,
+      "createdAt": "2026-04-24T14:26:06.525Z",
+      "updatedAt": "2026-04-24T14:26:06.525Z"
+    },
+    {
+      "id": "5ae812bd-4f38-419d-9bd9-0c844de6e918",
+      "title": "创新创业大赛",
+      "description": "面向全校学生的创新创业大赛，鼓励同学们展示自己的创业项目和创新想法。",
+      "type": "competition",
+      "location": "大学生创业孵化基地",
+      "startTime": "2026-05-04T14:26:06.525Z",
+      "registrationDeadline": "2026-05-02T14:26:06.525Z",
+      "maxParticipants": 100,
+      "currentParticipants": 30,
+      "organizer": "创新创业学院",
+      "status": "pending",
+      "isFeatured": false,
+      "createdAt": "2026-04-24T14:26:06.525Z",
+      "updatedAt": "2026-04-24T14:26:06.525Z"
+    }
+  ],
+  "registrations": [],
+  "notifications": []
+}

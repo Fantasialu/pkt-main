@@ -1,5 +1,8 @@
-// In-memory database for development/testing
-// This provides a simple interface that mimics the drizzle-orm API
+// File-based database for development/testing
+// This provides a simple interface that mimics the drizzle-orm API with file persistence
+
+import fs from 'fs';
+import path from 'path';
 
 interface UserRecord {
   id: string;
@@ -69,11 +72,60 @@ interface NotificationRecord {
   createdAt: string;
 }
 
-// In-memory storage
-let usersData: UserRecord[] = [];
-let activitiesData: ActivityRecord[] = [];
-let registrationsData: RegistrationRecord[] = [];
-let notificationsData: NotificationRecord[] = [];
+interface DatabaseData {
+  users: UserRecord[];
+  activities: ActivityRecord[];
+  registrations: RegistrationRecord[];
+  notifications: NotificationRecord[];
+}
+
+// File path for persistence
+const DATA_DIR = path.join(__dirname, '../data');
+const DATA_FILE = path.join(DATA_DIR, 'database.json');
+
+// Ensure data directory exists
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+// Load data from file
+function loadData(): DatabaseData {
+  ensureDataDir();
+  if (fs.existsSync(DATA_FILE)) {
+    try {
+      const content = fs.readFileSync(DATA_FILE, 'utf-8');
+      return JSON.parse(content);
+    } catch {
+      return { users: [], activities: [], registrations: [], notifications: [] };
+    }
+  }
+  return { users: [], activities: [], registrations: [], notifications: [] };
+}
+
+// Save data to file
+function saveData(data: DatabaseData) {
+  ensureDataDir();
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+// In-memory storage with persistence
+const loadedData = loadData();
+let usersData: UserRecord[] = [...loadedData.users];
+let activitiesData: ActivityRecord[] = [...loadedData.activities];
+let registrationsData: RegistrationRecord[] = [...loadedData.registrations];
+let notificationsData: NotificationRecord[] = [...loadedData.notifications];
+
+// Auto-save data when changes occur
+function autoSave() {
+  saveData({
+    users: usersData,
+    activities: activitiesData,
+    registrations: registrationsData,
+    notifications: notificationsData,
+  });
+}
 
 // Initialize with default admin user
 async function init() {
@@ -228,9 +280,11 @@ export const db = {
         switch (table) {
           case 'Users':
             usersData.push(item);
+            autoSave();
             return [item];
           case 'Activities':
             activitiesData.push(item);
+            autoSave();
             return [item];
           case 'Registrations':
             registrationsData.push(item);
@@ -239,9 +293,11 @@ export const db = {
             if (activity) {
               activity.currentParticipants++;
             }
+            autoSave();
             return [item];
           case 'Notifications':
             notificationsData.push(item);
+            autoSave();
             return [item];
         }
         return [];
@@ -272,6 +328,7 @@ export const db = {
           const index = dataArray.findIndex(item => item[fieldName] === condition.value);
           if (index !== -1) {
             dataArray[index] = { ...dataArray[index], ...data };
+            autoSave();
             return [dataArray[index]];
           }
           return [];
@@ -286,9 +343,11 @@ export const db = {
       switch (table) {
         case 'Users':
           usersData = usersData.filter(item => item[fieldName] !== condition.value);
+          autoSave();
           break;
         case 'Activities':
           activitiesData = activitiesData.filter(item => item[fieldName] !== condition.value);
+          autoSave();
           break;
         case 'Registrations':
           const regIndex = registrationsData.findIndex(item => item[fieldName] === condition.value);
@@ -301,9 +360,11 @@ export const db = {
               activity.currentParticipants--;
             }
           }
+          autoSave();
           break;
         case 'Notifications':
           notificationsData = notificationsData.filter(item => item[fieldName] !== condition.value);
+          autoSave();
           break;
       }
       return { execute: () => {} };
