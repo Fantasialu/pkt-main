@@ -50,6 +50,9 @@ export const apiService = {
 
   deleteUserById: (id: string) => request<null>(`/api/users/${id}`, { method: 'DELETE' }),
 
+  resetUserPassword: (id: string, newPassword: string) =>
+    request<User>(`/api/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+
   // Activities
   getActivities: (params?: { type?: string; search?: string; sort?: string }) => {
     const query = new URLSearchParams();

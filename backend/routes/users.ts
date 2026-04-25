@@ -246,9 +246,52 @@ router.get('/all', async (req, res) => {
       return res.status(403).json({ success: false, message: '权限不足' });
     }
 
-    const allUsers = await db.select().from('Users');
+    const allUsers = await db.select().from('Users').execute();
 
     res.json({ success: true, data: allUsers });
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'token无效或已过期' });
+  }
+});
+
+// POST /api/users/:id/reset-password - reset user password (admin only)
+router.post('/:id/reset-password', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: '未授权' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '权限不足' });
+    }
+
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: '密码至少6个字符' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    const updatedUser = await db.update('Users')
+      .set({ password: hashedPassword, updatedAt: new Date().toISOString() })
+      .where(eq({ id: '' }, id))
+      .returning();
+
+    if (updatedUser.length === 0) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+
+    res.json({
+      success: true,
+      message: '密码重置成功',
+      data: { id: updatedUser[0].id, email: updatedUser[0].email, name: updatedUser[0].name },
+    });
   } catch (error) {
     return res.status(401).json({ success: false, message: 'token无效或已过期' });
   }

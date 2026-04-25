@@ -24,6 +24,21 @@
       "createdAt": "2026-04-24T14:30:17.112Z",
       "updatedAt": "2026-04-24T14:30:17.112Z",
       "id": "88762b5a-9854-406a-8577-c73f5dacc762"
+    },
+    {
+      "email": "zhangsan@example.com",
+      "password": "$2b$10$j6pPXuMP6geuhEmHQw2IieyfGvbbCnIVX3WZL1pOoMncbl76KtMOi",
+      "name": "张三",
+      "studentId": "244090116",
+      "phone": "",
+      "major": "计算机学院",
+      "grade": "24级",
+      "college": "计算机学院",
+      "role": "student",
+      "isActive": true,
+      "createdAt": "2026-04-25T05:45:46.839Z",
+      "updatedAt": "2026-04-25T05:45:46.839Z",
+      "id": "59ca6b0c-8ed8-41c7-b38d-292b091a14ee"
     }
   ],
   "activities": [

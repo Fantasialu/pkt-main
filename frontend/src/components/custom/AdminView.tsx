@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { apiService } from '../../lib/api';
-import type { Activity, PlatformStats } from '../../types';
+import type { Activity, PlatformStats, User } from '../../types';
 import { TYPE_LABELS, TYPE_COLORS } from '../../pages/Index';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -20,10 +20,15 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AdminView({ onViewActivity }: { onViewActivity: (id: string) => void }) {
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'review' | 'stats'>('review');
+  const [activeTab, setActiveTab] = useState<'review' | 'stats' | 'users'>('review');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [resetPasswordModal, setResetPasswordModal] = useState<{ userId: string; userName: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -69,7 +74,64 @@ export default function AdminView({ onViewActivity }: { onViewActivity: (id: str
     }
   };
 
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await apiService.getAllUsers();
+      if (res.success) {
+        setUsers(res.data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      loadUsers();
+    }
+  }, [activeTab]);
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`确定要删除用户「${userName}」吗？此操作不可撤销。`)) {
+      return;
+    }
+    try {
+      const res = await apiService.deleteUserById(userId);
+      if (res.success) {
+        setUsers((prev) => prev.filter((u) => u.id !== userId));
+        toast.success('用户删除成功');
+      }
+    } catch {
+      toast.error('删除失败');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordModal || !newPassword || newPassword.length < 6) {
+      toast.error('请输入至少6位的新密码');
+      return;
+    }
+    try {
+      const res = await apiService.resetUserPassword(resetPasswordModal.userId, newPassword);
+      if (res.success) {
+        toast.success('密码重置成功');
+        setResetPasswordModal(null);
+        setNewPassword('');
+      }
+    } catch {
+      toast.error('操作失败');
+    }
+  };
+
   const pendingCount = activities.filter((a) => a.status === 'pending').length;
+  const filteredUsers = users.filter((user) =>
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.studentId?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-[#f8f7ff]">
@@ -144,6 +206,15 @@ export default function AdminView({ onViewActivity }: { onViewActivity: (id: str
             }`}
           >
             全部活动
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              activeTab === 'users' ? 'bg-[#3730a3] text-white' : 'bg-white border border-[#e0e0f0] text-[#6b7280] hover:border-[#3730a3] hover:text-[#3730a3]'
+            }`}
+          >
+            用户管理
+            <span className="ml-1.5 text-xs bg-[#6366f1] text-white rounded-full px-1.5 py-0.5">{users.length}</span>
           </button>
         </div>
 
@@ -304,7 +375,133 @@ export default function AdminView({ onViewActivity }: { onViewActivity: (id: str
             </div>
           </div>
         )}
+
+        {activeTab === 'users' && (
+          <div>
+            {/* Search */}
+            <div className="bg-white border border-[#e0e0f0] rounded-2xl p-4 mb-4">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6b7280]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="搜索用户（姓名、邮箱、学号）"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-[#e0e0f0] rounded-xl text-sm focus:outline-none focus:border-[#3730a3] focus:ring-1 focus:ring-[#3730a3]"
+                />
+              </div>
+            </div>
+
+            {usersLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-white border border-[#e0e0f0] rounded-2xl p-4 animate-pulse">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-[#6b7280]">暂无用户</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredUsers.map((user) => (
+                  <div key={user.id} className="bg-white border border-[#e0e0f0] rounded-2xl p-4 hover:shadow-md transition-all">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 bg-[#f8f7ff] rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold text-[#3730a3]">{user.name.charAt(0)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-[#1e1b4b]">{user.name}</span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              user.role === 'admin' ? 'bg-[#3730a3]/10 text-[#3730a3]' : 'bg-[#10b981]/10 text-[#10b981]'
+                            }`}>
+                              {user.role === 'admin' ? '管理员' : '普通用户'}
+                            </span>
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            user.isActive ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-[#ef4444]/10 text-[#ef4444]'
+                          }`}>
+                            {user.isActive ? '正常' : '已禁用'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs text-[#6b7280]">
+                          <span>📧 {user.email}</span>
+                          {user.studentId && <span>🆔 {user.studentId}</span>}
+                          {user.college && <span>🏛️ {user.college}</span>}
+                          {user.major && <span>📚 {user.major}</span>}
+                          {user.grade && <span>🎓 {user.grade}</span>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setResetPasswordModal({ userId: user.id, userName: user.name });
+                          }}
+                          className="px-3 py-1.5 border border-[#e0e0f0] text-[#6b7280] text-xs font-medium rounded-lg hover:bg-[#f8f7ff] transition-colors"
+                        >
+                          重置密码
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id, user.name)}
+                          className="px-3 py-1.5 border border-[#ef4444]/30 text-[#ef4444] text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Reset Password Modal */}
+      {resetPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-bold text-[#1e1b4b] mb-2">重置密码</h3>
+            <p className="text-sm text-[#6b7280] mb-4">为用户「{resetPasswordModal.userName}」设置新密码</p>
+            <input
+              type="password"
+              placeholder="请输入新密码（至少6位）"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-4 py-2 border border-[#e0e0f0] rounded-xl text-sm focus:outline-none focus:border-[#3730a3] focus:ring-1 focus:ring-[#3730a3] mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setResetPasswordModal(null);
+                  setNewPassword('');
+                }}
+                className="flex-1 py-2 border border-[#e0e0f0] text-[#6b7280] text-sm font-medium rounded-xl hover:bg-[#f8f7ff] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleResetPassword}
+                className="flex-1 py-2 bg-[#3730a3] text-white text-sm font-medium rounded-xl hover:bg-[#3730a3]/90 transition-colors"
+              >
+                确认重置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
